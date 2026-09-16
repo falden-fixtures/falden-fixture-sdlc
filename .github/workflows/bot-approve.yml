@@ -1,0 +1,31 @@
+name: bot-approve
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        required: true
+      merge:
+        required: false
+        default: 'true'
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: approve and optionally merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ inputs.pr }}
+          DO_MERGE: ${{ inputs.merge }}
+        run: |
+          set -x
+          gh api -X POST "/repos/$GITHUB_REPOSITORY/pulls/$PR/reviews" -f event=APPROVE -f body="Automated approval. FIXTURE: synthetic, see README."
+          gh api "/repos/$GITHUB_REPOSITORY/pulls/$PR" --jq '.mergeable_state'
+          if [ "$DO_MERGE" = "true" ]; then
+            TITLE=$(gh api "/repos/$GITHUB_REPOSITORY/pulls/$PR" --jq .title)
+            MARK='FIXTURE: synthetic commit in falden-fixture-sdlc. Not real work. See README.'
+            MSG="$TITLE"$'\n\n'"$MARK"
+            gh api -X PUT "/repos/$GITHUB_REPOSITORY/pulls/$PR/merge" -f merge_method=merge -f commit_message="$MSG"
+          fi
